@@ -59,8 +59,21 @@ def parse_game(line):
 
     return int(game_number), draws
 
+def get_minimum_cubes(game):
+    minimum_of_colour = lambda g, c: max(draw[c] for draw in g)
+    return {colour: minimum_of_colour(game, colour) for colour in (RED, BLUE, GREEN)}
+
+def power_of_cubes(cubes):
+    return cubes[BLUE] * cubes[RED] * cubes[GREEN]
+
+def sum_power_minimum_sets(games):
+    minimum_cubes = [get_minimum_cubes(game) for game in games.values()]
+    powers = [power_of_cubes(cubes) for cubes in minimum_cubes]
+    return sum(powers)
+
 def main(games):
-    return sum_possible_games(games, {RED: 12, GREEN: 13, BLUE: 14})
+    return sum_power_minimum_sets(games)
+    # return sum_possible_games(games, {RED: 12, GREEN: 13, BLUE: 14})
 
 if __name__ == '__main__':
     with open(INPUT_FILE, 'r') as f:
