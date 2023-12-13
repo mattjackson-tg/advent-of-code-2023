@@ -14,6 +14,8 @@ import pytest
 TEST_INPUT = 'test.txt'
 REAL_INPUT = 'map.txt'
 
+SMUDGE_TOLERANCE = 1
+
 
 def import_maps(input_text):
     maps = []
@@ -32,6 +34,10 @@ def import_maps(input_text):
 
     return maps
 
+def get_reflection_errors(line1, line2):
+    num_errors = sum(c1 != c2 for c1, c2 in zip(line1, line2))
+    return num_errors
+
 def is_map_symmetrical_at_row(map_, row_num):
     """
     For a map to be symmetrical at the row, concentric groups of lines outward must be equal, until we reach
@@ -42,20 +48,18 @@ def is_map_symmetrical_at_row(map_, row_num):
     row_num should be zero-indexed.
     """
     line_comparisons = zip(range(row_num, -1, -1), range(row_num+1, len(map_)))
-    return all(map_[line_a] == map_[line_b] for line_a, line_b in line_comparisons)
-
+    reflection_errors = [get_reflection_errors(map_[line_a], map_[line_b]) for line_a, line_b in line_comparisons]
+    return sum(reflection_errors) == SMUDGE_TOLERANCE
     
 def transpose_map(map_):
     """rotate entire map counter-clockwise. This makes the first row now the first column."""
     return list(zip(*map_))
 
-def find_horizontal_symmetry(map):
-    """Compare consecutive lines until we find a match. For each match, check whole map via brute force approach"""
-    neighbouring_pairs = zip(range(0, len(map)), range(1, len(map)))
-    for line_a, line_b in neighbouring_pairs:
-        if map[line_a] == map[line_b]:
-            if is_map_symmetrical_at_row(map, line_a):  # number of the first line would be the 0-indexed number of the "mirror point"
-                return line_b  # 1-indexed answer
+def find_horizontal_symmetry(map_):
+    """Check each reflection point for symmetry"""
+    for reflection_point in range(len(map_)-1):
+        if is_map_symmetrical_at_row(map_, reflection_point):
+            return reflection_point + 1  # (1-indexed)
 
     # no symmetry found
     return None
