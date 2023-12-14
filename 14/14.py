@@ -6,6 +6,7 @@ Part 1: two problems:
     2. compute load on north supports for given layout
 """
 
+import itertools
 from collections import defaultdict
 
 TEST_LAYOUT = 'test.txt'
@@ -14,6 +15,8 @@ REAL_LAYOUT = 'layout.txt'
 ROCK_SYMBOL = 'O'
 CUBE_SYMBOL = '#'
 SPACE_SYMBOL = '.'
+
+NUM_CYCLES = 1000000000
 
 
 class SpaceLayoutItem:
@@ -27,9 +30,21 @@ class SpaceLayoutItem:
         self.y = y
 
     def __repr__(self):
-        return "'{}' ({}, {})".format(self.symbol, self.x, self.y)
+        return self.symbol
 
-    def can_move_upwards(self):
+    def __eq__(self, other):
+        return self.symbol == other.symbol
+
+    def can_move_up(self):
+        return False
+
+    def can_move_down(self):
+        return False
+
+    def can_move_left(self):
+        return False
+
+    def can_move_right(self):
         return False
 
 class RockLayoutItem(SpaceLayoutItem):
@@ -37,13 +52,34 @@ class RockLayoutItem(SpaceLayoutItem):
     contributes_to_load = True
     symbol = ROCK_SYMBOL
 
-    def can_move_upwards(self):
+    def can_move_up(self):
         block_above = self.layout.get_item_at_position(self.x, self.y-1)
         return block_above.is_blocking is False
 
-    def move_upwards(self):
-        """this function does not check if the position upwards is blocking. caller should check."""
+    def can_move_down(self):
+        block_below = self.layout.get_item_at_position(self.x, self.y+1)
+        return block_below.is_blocking is False
+
+    def can_move_left(self):
+        block_left = self.layout.get_item_at_position(self.x-1, self.y)
+        return block_left.is_blocking is False
+
+    def can_move_right(self):
+        block_right = self.layout.get_item_at_position(self.x+1, self.y)
+        return block_right.is_blocking is False
+
+    def move_up(self):
+        """this function does not check if the position up is blocking. caller should check."""
         self.layout.place_item_in_position(self, self.x, self.y-1)
+
+    def move_down(self):
+        self.layout.place_item_in_position(self, self.x, self.y+1)
+
+    def move_left(self):
+        self.layout.place_item_in_position(self, self.x-1, self.y)
+
+    def move_right(self):
+        self.layout.place_item_in_position(self, self.x+1, self.y)
 
 class CubeLayoutItem(SpaceLayoutItem):
     is_blocking = True
@@ -60,7 +96,10 @@ class RockLayout:
                 self.grid[(x, y)] = layout_item
 
     def __repr__(self):
-        return repr(self.items)
+        return '\n'.join(''.join(map(repr, row)) for row in self.items)
+
+    def serialize(self):
+        return [''.join(map(repr, row)) for row in self.items]
 
     @property
     def items(self):
@@ -90,8 +129,46 @@ class RockLayout:
     def tilt_north(self):
         for item_row in self.items:
             for item in item_row:
-                while item.can_move_upwards():
-                    item.move_upwards()
+                while item.can_move_up():
+                    item.move_up()
+
+    def tilt_south(self):
+        for item_row in reversed(self.items):
+            for item in item_row:
+                while item.can_move_down():
+                    item.move_down()
+
+    def tilt_east(self):
+        for item_row in self.items:
+            for item in reversed(item_row):
+                while item.can_move_right():
+                    item.move_right()
+
+    def tilt_west(self):
+        for item_row in self.items:
+            for item in item_row:
+                while item.can_move_left():
+                    item.move_left()
+
+    def spin_cycle(self):
+        previous_runs = []
+
+        for n in range(NUM_CYCLES): 
+
+            self.tilt_north()
+            self.tilt_west()
+            self.tilt_south()
+            self.tilt_east()
+
+            state = self.serialize()
+            if state in previous_runs:
+                # found cycle - compute all the way up to NUM_CYCLES
+                cycle_length = len(previous_runs) - previous_runs.index(state)
+                cycle_pos = (NUM_CYCLES - len(previous_runs)) % cycle_length
+                final_position = previous_runs[-cycle_length:][cycle_pos-1]
+                return RockLayout(final_position).calculate_north_supports_load()
+
+            previous_runs.append(state)
 
     def calculate_north_supports_load(self):
         num_rows = len(self.items)
@@ -114,8 +191,8 @@ def import_layout_from_file(filename):
 
 def main():
     layout = import_layout_from_file(REAL_LAYOUT)
-    layout.tilt_north()
-    return layout.calculate_north_supports_load()
+    return layout.spin_cycle()
+    #return layout.calculate_north_supports_load()
 
 
 if __name__=='__main__':
