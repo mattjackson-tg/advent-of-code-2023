@@ -45,6 +45,10 @@ class Tile:
         self.energised = False
         self.direction_history = set()
 
+    def reset_tile(self):
+        self.energised = False
+        self.direction_history = set()
+
     def __repr__(self):
         return "<Tile {}: {}>".format(self.position, self.symbol)
 
@@ -71,6 +75,12 @@ class Laser:
         tile = self.grid.get_tile(start_position)
         tile.energised = True
         self.direction, _ = self.get_new_direction_and_new_lasers(tile)
+
+    @staticmethod
+    def get_starting_lasers_for_laser(grid, laser_position, laser_direction):
+        """A laser could immediately change direction or split upon being created. Use this method to go from a notional
+        starting laser to a real set of starting lasers, with adjusted direction."""
+        return []
 
     def next_tile(self):
         if self.direction == DIRECTION_UP:
@@ -147,11 +157,60 @@ class Grid:
     def energised_map(self):
         print('\n'.join(''.join('#' if tile.energised else '.' for tile in tile_row) for tile_row in self.tiles))
 
+    def size(self):
+        xs, ys = zip(*map(tuple, self.grid.keys()))
+        return max(xs) + 1, max(ys) + 1
+        
+
+    def get_edge_tile_positions(self):
+        size_x, size_y = self.size()
+        return itertools.chain(
+            (Position(0, y) for y in range(size_y)),  # left edge
+            (Position(x, 0) for x in range(1, size_x)),  # top edge
+            (Position(x, size_y-1) for x in range(1, size_x)), # bottom edge
+            (Position(size_x-1, y) for y in range(1, size_y))  # right edge
+        )
+
+
+    def get_directions_from_edge(self, position):
+        """Returns the direction that points from the edge. Only works for edge tiles. Returns two directions for corners."""
+        size_x, size_y = self.size()
+        directions = []
+
+        if position.x == 0:  # left edge
+            directions.append(DIRECTION_RIGHT)
+        elif position.x == size_x - 1:  # right edge
+            directions.append(DIRECTION_LEFT)
+
+        if position.y == 0:  # top edge
+            directions.append(DIRECTION_DOWN)
+        elif position.y == size_y - 1:  # bottom edge
+            directions.append(DIRECTION_UP)
+
+        return directions
+
     def get_tile(self, position):
         return self.grid.get(position, None)
 
-    def fire_laser(self, laser_start=Position(x=0, y=0)):
-        lasers = [Laser(grid=self, start_position=laser_start, start_direction=DIRECTION_RIGHT)]
+    def reset_all_tiles(self):
+        for tile in self.grid.values():
+            tile.reset_tile()
+
+    def get_optimal_energised_tiles(self):
+        energised = []
+
+        for start_position in self.get_edge_tile_positions():
+            for direction in self.get_directions_from_edge(start_position):
+                self.reset_all_tiles()
+                print("Starting from {}, going {}".format(start_position, direction))
+                self.fire_laser(laser_start=start_position, start_direction=direction)
+                energised.append(self.number_energised_tiles())
+                print(energised)
+
+        return max(energised)
+
+    def fire_laser(self, laser_start=Position(x=0, y=0), start_direction=DIRECTION_RIGHT):
+        lasers = [Laser(grid=self, start_position=laser_start, start_direction=start_direction)]
         while lasers:
             laser = lasers.pop()
             while laser.can_continue():
@@ -168,9 +227,7 @@ def import_from_file(filename):
 
 def main():
     grid = import_from_file(REAL_GRID_FILE)
-    grid.fire_laser()
-    import pdb; pdb.set_trace()
-    return grid.number_energised_tiles()
+    return grid.get_optimal_energised_tiles()
 
 if __name__=='__main__':
     print(main())
