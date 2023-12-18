@@ -10,8 +10,16 @@ REAL_INPUT = 'real.txt'
 OPERATIONAL_SPRING = '.'
 DAMAGED_SPRING = '#'
 
+EXPANSION_MULTIPLE = 5
 
-def get_num_arrangements(puzzle, success_conditions):
+
+def expand_puzzle(puzzle):
+    return '?'.join([puzzle]*EXPANSION_MULTIPLE)
+
+def get_num_arrangements_with_expansion(puzzle, success_conditions):
+    puzzle = expand_puzzle(puzzle)
+    success_conditions = tuple(list(success_conditions)*EXPANSION_MULTIPLE)
+    print("Solving {}...".format(puzzle), end=' ', flush=True)
     found_solutions = []
     num_unknown = puzzle.count('?')
     filling_values = itertools.product([OPERATIONAL_SPRING, DAMAGED_SPRING], repeat=num_unknown)
@@ -24,6 +32,24 @@ def get_num_arrangements(puzzle, success_conditions):
         if solution_meets_conditions(puzzle_solution, success_conditions):
             found_solutions.append(puzzle_solution)
         
+    print("Found {} solutions.".format(len(found_solutions)))
+    return len(found_solutions)
+
+def get_num_arrangements(puzzle, success_conditions):
+    print("Solving {}...".format(puzzle), end=' ', flush=True)
+    found_solutions = []
+    num_unknown = puzzle.count('?')
+    filling_values = itertools.product([OPERATIONAL_SPRING, DAMAGED_SPRING], repeat=num_unknown)
+
+    for possible_fill in filling_values:
+        puzzle_solution = puzzle
+        for fill_value in possible_fill:
+            puzzle_solution = puzzle_solution.replace('?', fill_value, 1)
+
+        if solution_meets_conditions(puzzle_solution, success_conditions):
+            found_solutions.append(puzzle_solution)
+        
+    print("Found {} solutions.".format(len(found_solutions)))
     return len(found_solutions)
 
 def solution_meets_conditions(solution, conditions):
@@ -45,8 +71,8 @@ def import_from_file(filename):
         return import_from_lines(f.readlines())
 
 def main():
-    puzzles = import_from_file(REAL_INPUT)
-    return sum(get_num_arrangements(puzzle, success_conditions) for puzzle, success_conditions in puzzles)
+    puzzles = import_from_file(TEST_INPUT)
+    return sum(get_num_arrangements_with_expansion(puzzle, success_conditions) for puzzle, success_conditions in puzzles)
 
 if __name__=='__main__':
     print(main())
